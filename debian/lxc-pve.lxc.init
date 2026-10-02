@@ -22,6 +22,11 @@ STAMP=/run/lxc.started
 
 test -x $LIBEXEC/lxc-containers || exit 0
 
+# lxc-containers uses /var/lock/subsys/lxc as lock file if /var/lock/subsys
+# exists, /var/lock/lxc otherwise, which fails once liblxc has created its
+# lock directory of that name.
+install -d -m 0755 /var/lock/subsys
+
 case "$1" in
     start)
         [ -e $STAMP ] && exit 0 # RemainAfterExit=yes
