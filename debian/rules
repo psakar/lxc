@@ -7,6 +7,16 @@
 DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/default.mk
 
+# The pkg.lxc-pve.lsbservice build profile is for Devuan and other
+# systemd-free Debian derivatives (see pve-common's and pve-manager's
+# pkg.*.lsbservice profiles): it installs LSB init scripts mirroring the
+# lxc, lxc-net and lxc-monitord units instead of them, with the same restart
+# behavior on upgrades. To build this variant, run:
+#   dpkg-buildpackage -b -us -uc -Ppkg.lxc-pve.lsbservice
+ifneq (,$(filter pkg.lxc-pve.lsbservice,$(DEB_BUILD_PROFILES)))
+LSBSERVICE = 1
+endif
+
 %:
 	dh $@
 
@@ -43,6 +53,26 @@ override_dh_install:
 override_dh_missing:
 	dh_missing --fail-missing
 
+ifdef LSBSERVICE
+execute_after_dh_install:
+	rm -rf debian/lxc-pve/usr/lib/systemd
+
+override_dh_installsystemd:
+
+override_dh_installinit:
+	dh_installinit -plxc-pve --name lxc-monitord
+	dh_installinit -plxc-pve --name lxc-net
+	dh_installinit -plxc-pve --name lxc --no-restart-after-upgrade
+
+override_dh_lintian:
+	dh_lintian
+	install -d debian/lxc-pve/usr/share/lintian/overrides
+	cat debian/lxc-pve.lintian-overrides.lsbservice \
+	    >>debian/lxc-pve/usr/share/lintian/overrides/lxc-pve
+else
 override_dh_installsystemd:
 	dh_installsystemd -plxc-pve -r lxc-monitord.service lxc-net.service
 	dh_installsystemd -plxc-pve -r --no-restart-after-upgrade lxc.service
+
+override_dh_installinit:
+endif

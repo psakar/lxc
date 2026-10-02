@@ -23,6 +23,7 @@ Homepage: https://linuxcontainers.org
 
 Package: lxc-pve
 Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
 Depends: apparmor,
          bridge-utils,
          criu (>= 1.5.2-1),

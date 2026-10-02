@@ -1,0 +1,61 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          lxc
+# Required-Start:    $syslog $remote_fs $network lxc-net
+# Required-Stop:     $syslog $remote_fs $network lxc-net
+# Should-Start:      apparmor cgroupfs-mount
+# Should-Stop:       apparmor cgroupfs-mount
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: LXC Container Initialization and Autoboot Code
+### END INIT INFO
+
+# LSB counterpart of lxc.service, only installed by the pkg.lxc-pve.lsbservice
+# build (see debian/rules). Unlike upstream's sysvinit script, it also loads
+# the AppArmor profiles for containers, like the unit's ExecStartPre= and
+# ExecReload=, which PVE's containers need.
+
+. /lib/lsb/init-functions
+
+LIBEXEC=/usr/libexec/lxc
+STAMP=/run/lxc.started
+
+test -x $LIBEXEC/lxc-containers || exit 0
+
+case "$1" in
+    start)
+        [ -e $STAMP ] && exit 0 # RemainAfterExit=yes
+        install -d -m 0755 /var/lib/lxc # StateDirectory=lxc
+        log_action_begin_msg "Starting LXC (AppArmor profiles, autostart containers)"
+        $LIBEXEC/lxc-apparmor-load && $LIBEXEC/lxc-containers start && touch $STAMP
+        status=$?
+        log_action_end_msg $status
+        exit $status
+        ;;
+    stop)
+        log_action_begin_msg "Stopping LXC autostart containers"
+        $LIBEXEC/lxc-containers stop
+        status=$?
+        rm -f $STAMP
+        log_action_end_msg $status
+        exit $status
+        ;;
+    reload|force-reload)
+        log_action_begin_msg "Reloading LXC AppArmor profiles"
+        $LIBEXEC/lxc-apparmor-load
+        status=$?
+        log_action_end_msg $status
+        exit $status
+        ;;
+    restart)
+        "$0" stop && "$0" start
+        ;;
+    status)
+        [ -e $STAMP ] && exit 0
+        exit 3
+        ;;
+    *)
+        echo "Usage: /etc/init.d/lxc {start|stop|restart|reload|force-reload|status}" >&2
+        exit 3
+        ;;
+esac
